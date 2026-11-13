@@ -1,0 +1,18 @@
+# Lenovo Vantage Upgraded Changelog
+
+## 1.1.0 - Rapid Charge fork
+
+- Added Rapid Charge (`Fast`) support through the kernel's standard
+  `charge_types` power-supply attribute.
+- Replaced the Battery page's Normal/Conservation combo with two mutually
+  exclusive switches: **Conservation Mode** and **Rapid Charge**. The GUI
+  refreshes both from the hardware after every change.
+- Added D-Bus methods: `GetChargeMode`, `SetChargeMode`,
+  `GetAvailableChargeModes`, `GetRapidCharge`, and `SetRapidCharge`.
+- Added CLI commands: `vantage-cli rapid [on|off]` and
+  `vantage-cli battery [normal|conservation|rapid]`.
+- Added Rapid Charge to the zenity fallback menu.
+- Kept `VPC2004:*/conservation_mode` as a fallback for older kernels.
+- Added unit tests and a manual hardware write test.
+- No new installer dependencies. `acpi_call`, DKMS, and Secure Boot changes
+  are not required.
