@@ -1,7 +1,10 @@
 # Lenovo Vantage Upgraded Changelog
 
-## 1.1.0 - Rapid Charge fork
+## 1.1.0 - Rapid Charge release
 
+- Renamed the project to **Lenovo Vantage Upgraded** to match the repository.
+- Added GPL-3.0 copyright notices and upstream acknowledgements.
+- Rewrote the README with concise install, usage and compatibility notes.
 - Added Rapid Charge (`Fast`) support through the kernel's standard
   `charge_types` power-supply attribute.
 - Replaced the Battery page's Normal/Conservation combo with two mutually

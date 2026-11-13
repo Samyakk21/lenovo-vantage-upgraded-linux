@@ -9,6 +9,8 @@ nightcodex7/lenovo-vantage-unofficial-linux.
 Modifications include Rapid Charge support, ACPI/sysfs interface handling,
 hardware detection, GUI/CLI/zenity integration, tests and documentation.
 
+The original projects are licensed under GNU GPL-3.0.
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or

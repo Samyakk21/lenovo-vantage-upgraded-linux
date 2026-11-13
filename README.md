@@ -109,6 +109,8 @@ This project builds upon:
 - [LenovoLegionToolkit](https://github.com/BartoszCichecki/LenovoLegionToolkit)
   — inspiration for the Windows feature set.
 
+Both upstream projects are licensed under GNU GPL-3.0.
+
 Modifications in this fork include Rapid Charge support, charge-mode
 capability detection, ACPI/sysfs interface handling, GUI/CLI/zenity
 integration, tests and documentation updates.
