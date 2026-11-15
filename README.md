@@ -1,59 +1,52 @@
 # Lenovo Vantage Upgraded Linux
 
-An unofficial, community-maintained Linux control suite for Lenovo laptops,
-forked from
+Hey! This is an unofficial, community-made Linux control app for Lenovo
+laptops. It started as a fork of
 [nightcodex7/lenovo-vantage-unofficial-linux](https://github.com/nightcodex7/lenovo-vantage-unofficial-linux)
-and built on the original
+and builds on the original
 [niizam/vantage](https://github.com/niizam/vantage) project.
 
-The main addition in this fork is a real **Rapid Charge** switch alongside
-**Conservation Mode**, implemented through the kernel's standard
-`charge_types` power-supply interface.
+The main thing this fork adds is a real **Rapid Charge** switch next to
+**Conservation Mode**. It uses the kernel's standard `charge_types` interface,
+so you don't need `acpi_call`, a DKMS module, or Secure Boot changes just to get
+Rapid Charge working.
 
-> [!WARNING]
-> **This is unofficial software. Use it at your own risk.**
->
-> This project is not affiliated with, endorsed by, or supported by Lenovo.
-> It has been tested on the hardware listed below, but **not on all machines**.
-> Features may not work, may behave differently, or may produce undesirable
-> results on your laptop, BIOS, kernel, or firmware. Some controls write to
-> kernel sysfs interfaces handled by the Lenovo embedded controller (EC).
->
-> To the maximum extent permitted by applicable law, the author and
-> contributors **cannot be held liable** for any damage, data loss, hardware
-> failure, voided warranty, or other consequences resulting from the use of
-> this software. Back up important data before changing hardware settings.
+If you're here because Lenovo Vantage doesn't exist on Linux, you're in the
+right place. There's a GUI, a CLI, and a zenity fallback for the common Lenovo
+laptop controls.
 
 ## Contents
 
 - [Status](#status)
 - [What this fork adds](#what-this-fork-adds)
 - [Features](#features)
-- [Battery charge modes](#battery-charge-modes)
-- [How it works](#how-it-works)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Battery charge modes](#battery-charge-modes)
+- [How it works](#how-it-works)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
 - [Reporting bugs and hardware results](#reporting-bugs-and-hardware-results)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
 - [Maintainer](#maintainer)
-- [Safety and liability](#safety-and-liability)
+- [Note](#note)
 
 ## Status
 
-- **Primary test machine:** Lenovo IdeaPad Gaming 3 15ACH6 (`82K2`), BIOS
-  `H3CN32WW(V2.02)`, Ubuntu 24.04, kernel 7.0.
-- **Expected to work:** Many Lenovo IdeaPad and Legion laptops that expose the
-  relevant `ideapad_laptop`, `VPC2004`, and power-supply sysfs interfaces.
-- **Not tested on all machines.** Some features are model-, BIOS-, kernel-, or
-  firmware-dependent. The GUI disables controls that are not detected, but
-  detection is not a guarantee that a write will behave as expected.
-- **Dual-boot note:** Charge-mode persistence across Windows and Linux has not
-  been fully tested. Lenovo firmware or Windows tools may change the setting
-  independently. Check the mode after switching operating systems.
+I've mainly tested this on a Lenovo IdeaPad Gaming 3 15ACH6 (`82K2`), BIOS
+`H3CN32WW(V2.02)`, running Ubuntu 24.04 with kernel 7.0. It should work on many
+IdeaPad and Legion laptops that expose the usual `ideapad_laptop`, `VPC2004`,
+and power-supply sysfs files, but I haven't tested every model.
+
+If a control shows up as disabled, that usually means the app couldn't find the
+interface on your machine. Detection is helpful, but it isn't a promise that
+every write will behave the same on every BIOS or firmware version.
+
+Dual-boot note: I haven't fully tested whether the charge mode survives
+switching between Windows and Linux. Lenovo firmware or Windows tools can
+change it on their own, so check the mode after you switch.
 
 ## What this fork adds
 
@@ -67,13 +60,15 @@ Compared with the upstream projects, this fork adds:
 - Rapid Charge in the zenity fallback menu.
 - Capability detection and read-back verification before reporting success.
 - Unit tests and a manual hardware write test.
-- **No** `acpi_call`, DKMS module, or Secure Boot changes are required for
-  Rapid Charge.
+- **No** `acpi_call`, DKMS module, or Secure Boot changes required for Rapid
+  Charge.
 
 ## Features
 
-- **Battery control:** Normal, Conservation (`Long_Life`), and Rapid Charge
-  (`Fast`) modes, plus battery status and health information.
+Here's the stuff you can control:
+
+- **Battery:** Normal, Conservation (`Long_Life`), and Rapid Charge (`Fast`)
+  modes, plus battery status and health info.
 - **Power profiles:** Quiet, Balanced, and Performance through
   `platform_profile` and, when available, `power-profiles-daemon`.
 - **Fan modes:** Standard, Super Silent, Dust Cleaning, and Performance through
@@ -88,79 +83,18 @@ Compared with the upstream projects, this fork adds:
 - **Capability-aware UI:** Unsupported controls are disabled with a reason
   instead of being silently written.
 
-## Battery charge modes
-
-Modern `ideapad_laptop` kernels expose the battery charge modes at:
-
-```text
-/sys/class/power_supply/BAT*/charge_types
-```
-
-Example output:
-
-```text
-[Fast] Standard Long_Life
-```
-
-The value in brackets is the currently active mode.
-
-| Mode | Kernel value | Effect |
-|---|---|---|
-| Normal | `Standard` | Rapid Charge and Conservation are off |
-| Conservation | `Long_Life` | Caps charging below 100% (typically around 55-60%, depending on model and firmware) |
-| Rapid Charge | `Fast` | Prioritizes fast charging, typically reaching 80% quickly before continuing to 100% |
-
-Conservation Mode and Rapid Charge are **mutually exclusive**. The
-kernel/EC exposes a single active charge mode, and the GUI refreshes both
-switches after every write so the UI reflects the hardware.
-
-Toggling an already-off switch is a no-op. For example, disabling Conservation
-Mode does not clear Rapid Charge, and disabling Rapid Charge does not enable
-Conservation Mode. Use `battery normal` or set the desired mode explicitly.
-
-On older kernels where `charge_types` is unavailable, the daemon falls back to
-`VPC2004:*/conservation_mode`. That interface supports Normal and Conservation
-only, so Rapid Charge is reported as unsupported.
-
-## How it works
-
-The GUI and CLI do not write hardware interfaces directly. They talk to a
-root-owned D-Bus daemon, which performs capability checks and writes the
-relevant sysfs attributes.
-
-```text
-vantage-gui / vantage-cli
-        |
-        | D-Bus system bus (org.lenovo.Vantage)
-        v
-vantaged (root daemon)
-        |
-        +-- daemon/features/battery.py  -> /sys/class/power_supply/BAT*/charge_types
-        +-- daemon/features/fan.py      -> VPC2004:*/fan_mode
-        +-- daemon/features/power.py    -> /sys/firmware/acpi/platform_profile
-        +-- daemon/features/system.py   -> VPC2004:*/fn_lock, usb_charging, ...
-        +-- daemon/features/gpu.py      -> supergfxctl / optimus-manager
-```
-
-- **D-Bus bus name:** `org.lenovo.Vantage`
-- **Object path:** `/org/lenovo/Vantage`
-- **Interface:** `org.lenovo.Vantage`
-- **Service unit:** `vantaged.service`
-- **Daemon install path:** `/usr/lib/vantage/daemon/vantaged.py`
-
-The zenity fallback (`/usr/bin/vantage`) is a standalone shell script. It uses
-`pkexec` to write the same sysfs interfaces and does not require the daemon.
-
 ## Requirements
 
+You'll need:
+
 - Linux with systemd and D-Bus.
-- A Lenovo laptop with the relevant `ideapad_laptop`/`VPC2004` sysfs controls.
+- A Lenovo laptop with the right `ideapad_laptop`/`VPC2004` sysfs controls.
 - Python 3.10 or newer.
 - PyQt6, `dbus-python`, and PyGObject for the GUI and daemon.
 - `zenity` and `xinput` for the fallback and some input-related features.
 - Root access for installation and for the daemon.
 
-Optional external tools:
+Optional extras:
 
 | Tool | Used for |
 |---|---|
@@ -171,10 +105,12 @@ Optional external tools:
 | `nvidia-settings` | NVIDIA GPU clock offsets (X11 with Coolbits) |
 
 `install.sh` installs the core Python, Qt, D-Bus, zenity, and input packages on
-Arch, Debian/Ubuntu, Fedora, and openSUSE. Optional tools are not installed
+Arch, Debian/Ubuntu, Fedora, and openSUSE. The optional tools aren't installed
 automatically.
 
 ## Installation
+
+The short version:
 
 ```bash
 git clone https://github.com/Samyakk21/lenovo-vantage-upgraded-linux.git
@@ -184,7 +120,7 @@ make test
 sudo make install
 ```
 
-`make install`:
+`make install` handles the boring parts for you:
 
 - Installs runtime dependencies through `install.sh`.
 - Installs the daemon under `/usr/lib/vantage/daemon/`.
@@ -192,20 +128,20 @@ sudo make install
 - Installs the desktop entry, icon, D-Bus policy, and systemd unit.
 - Enables and restarts `vantaged.service`.
 
-Verify the service:
+Check that the service is happy:
 
 ```bash
 systemctl status vantaged.service
 ```
 
-To uninstall:
+If you ever want to remove it:
 
 ```bash
 sudo make uninstall
 ```
 
-To test the real EC write path on your machine (the script saves and restores
-the original mode):
+There's also a manual hardware test that writes to the real EC and then
+restores the original mode:
 
 ```bash
 sudo tests/manual_rapid_charge_test.sh
@@ -225,11 +161,13 @@ sudo tests/manual_rapid_charge_test.sh
 vantage-gui
 ```
 
-The GUI includes Dashboard, Power, Battery, Actions, Settings, and About pages.
-Battery controls are disabled with an explanatory message when the daemon or
-hardware does not support them.
+The GUI has Dashboard, Power, Battery, Actions, Settings, and About pages.
+Battery controls are disabled with an explanation when the daemon or hardware
+doesn't support them.
 
 ### CLI
+
+The CLI is handy for scripts or when you don't want to open the GUI:
 
 ```bash
 vantage-cli capabilities          # show detected hardware support
@@ -254,7 +192,7 @@ vantage-cli rgb static --color FF0000
 vantage-cli overclock 100 200
 ```
 
-Global JSON output is supported:
+Want JSON? It's supported too:
 
 ```bash
 vantage-cli --json capabilities
@@ -263,8 +201,8 @@ vantage-cli --json sensors
 ```
 
 `battery on` and `battery off` are legacy aliases for Conservation Mode and
-Normal mode. For clarity, prefer `battery conservation`, `battery rapid`, and
-`battery normal`.
+Normal mode. For clarity, I'd stick with `battery conservation`,
+`battery rapid`, and `battery normal`.
 
 ### Zenity fallback
 
@@ -272,36 +210,107 @@ Normal mode. For clarity, prefer `battery conservation`, `battery rapid`, and
 vantage
 ```
 
-The fallback provides a menu for the most common controls and uses `pkexec`
-for privileged writes. It is useful on systems without PyQt6 or when the
-daemon is not running.
+The fallback gives you a menu for the most common controls and uses `pkexec`
+for privileged writes. It's handy on systems without PyQt6 or when the daemon
+isn't running.
+
+## Battery charge modes
+
+This is the part most people come here for.
+
+Modern `ideapad_laptop` kernels expose the battery charge modes at:
+
+```text
+/sys/class/power_supply/BAT*/charge_types
+```
+
+Example output:
+
+```text
+[Fast] Standard Long_Life
+```
+
+The value in brackets is the currently active mode.
+
+| Mode | Kernel value | What it does |
+|---|---|---|
+| Normal | `Standard` | Rapid Charge and Conservation are off |
+| Conservation | `Long_Life` | Caps charging below 100% (usually around 55-60%, depending on your model and firmware) |
+| Rapid Charge | `Fast` | Charges quickly, usually reaching 80% fast before continuing to 100% |
+
+Conservation Mode and Rapid Charge are **mutually exclusive**. The kernel/EC
+keeps one active charge mode at a time, and the GUI refreshes both switches
+after every write so the UI matches the hardware.
+
+Toggling a switch that's already off does nothing. For example, turning off
+Conservation Mode doesn't clear Rapid Charge, and turning off Rapid Charge
+doesn't turn on Conservation Mode. Use `battery normal` or set the mode you
+actually want.
+
+On older kernels where `charge_types` doesn't exist, the daemon falls back to
+`VPC2004:*/conservation_mode`. That interface only supports Normal and
+Conservation, so Rapid Charge shows up as unsupported.
+
+## How it works
+
+Under the hood, the GUI and CLI don't touch hardware directly. They talk to a
+small root-owned D-Bus daemon, which does the capability checks and writes the
+sysfs files.
+
+```text
+vantage-gui / vantage-cli
+        |
+        | D-Bus system bus (org.lenovo.Vantage)
+        v
+vantaged (root daemon)
+        |
+        +-- daemon/features/battery.py  -> /sys/class/power_supply/BAT*/charge_types
+        +-- daemon/features/fan.py      -> VPC2004:*/fan_mode
+        +-- daemon/features/power.py    -> /sys/firmware/acpi/platform_profile
+        +-- daemon/features/system.py   -> VPC2004:*/fn_lock, usb_charging, ...
+        +-- daemon/features/gpu.py      -> supergfxctl / optimus-manager
+```
+
+Useful details:
+
+- **D-Bus bus name:** `org.lenovo.Vantage`
+- **Object path:** `/org/lenovo/Vantage`
+- **Interface:** `org.lenovo.Vantage`
+- **Service unit:** `vantaged.service`
+- **Daemon install path:** `/usr/lib/vantage/daemon/vantaged.py`
+
+The zenity fallback (`/usr/bin/vantage`) is a standalone shell script. It uses
+`pkexec` to write the same sysfs interfaces and doesn't need the daemon.
 
 ## Troubleshooting
 
-### The GUI or CLI cannot connect to the daemon
+If something isn't working, start here.
+
+### The GUI or CLI can't connect to the daemon
 
 ```bash
 systemctl status vantaged.service
 journalctl -u vantaged.service -b --no-pager
 ```
 
-If the service is not installed, run `sudo make install`. If it is failing,
-check that `dbus-python`, `PyGObject`, and Python 3.10+ are installed.
+If the service isn't installed, run `sudo make install`. If it's failing, check
+that `dbus-python`, `PyGObject`, and Python 3.10+ are installed.
 
 ### Rapid Charge is disabled
 
-Check what the EC advertises:
+Check what your EC says:
 
 ```bash
 cat /sys/class/power_supply/BAT*/charge_types
 ```
 
-- No `Fast` entry: the laptop's EC does not support Rapid Charge through this
+- No `Fast` entry? Your laptop's EC doesn't support Rapid Charge through this
   kernel interface.
-- Missing file: the kernel only supports the older Conservation Mode fallback.
-- `Fast` is present but the switch is still disabled: make sure the new daemon
-  is installed and `vantaged.service` has been restarted. An older daemon does
-  not expose the Rapid Charge D-Bus methods.
+- The file is missing? The kernel only supports the older Conservation Mode
+  fallback.
+- `Fast` is there but the switch is still disabled? Make sure the new daemon is
+  installed and `vantaged.service` has been restarted. An older daemon doesn't
+  know about the Rapid Charge D-Bus methods.
 
 ### All controls are disabled
 
@@ -311,29 +320,31 @@ Run:
 vantage-cli capabilities
 ```
 
-The output shows which features were detected and why unsupported features are
+That tells you which features were detected and why unsupported ones are
 disabled. Check that the expected sysfs paths exist and that the daemon is
 running.
 
 ### Permission errors
 
-The GUI and CLI should be run as your normal user, not with `sudo` or as root.
-The root-owned daemon performs the privileged writes. If you run a frontend as
-root, D-Bus session and display behavior may be incorrect.
+Run the GUI and CLI as your normal user, not with `sudo` or as root. The
+root-owned daemon does the privileged writes. Running a frontend as root can
+also cause D-Bus session and display weirdness.
 
 ### The charge mode resets after reboot or after using Windows
 
-Firmware, BIOS updates, or Lenovo software on another OS may change the mode.
-Reapply the desired mode after booting. Dual-boot persistence is not guaranteed
-and has not been fully tested.
+Firmware, BIOS updates, or Lenovo software on another OS can change the mode.
+Just set it again after booting. Dual-boot persistence isn't guaranteed, and I
+haven't fully tested it.
 
-### A feature works but behaves unexpectedly
+### A feature works, but not the way you expected
 
-Stop using that control and report the model, BIOS version, kernel version, and
+Stop using that control and report your model, BIOS version, kernel version, and
 the sysfs values. Some features depend on undocumented firmware behavior and
 may need model-specific handling.
 
 ## Development
+
+Want to poke around or add a feature? Here's the layout.
 
 ### Project layout
 
@@ -353,7 +364,7 @@ may need model-specific handling.
 
 ### Running from source
 
-Stop the installed daemon first if it is running, then start the source daemon:
+Stop the installed daemon first if it's running, then start the source daemon:
 
 ```bash
 sudo systemctl stop vantaged.service
@@ -367,7 +378,7 @@ python3 cli/vantage-cli.py capabilities
 python3 cli/vantage-gui.py
 ```
 
-The daemon must run as root because it writes root-owned sysfs attributes.
+The daemon needs root because it writes root-owned sysfs attributes.
 
 ### Tests
 
@@ -376,10 +387,11 @@ make test
 ```
 
 The unit tests cover charge-mode parsing, validation, writes, read-back
-verification, legacy fallback, and capability detection. They do not write to
-real hardware.
+verification, legacy fallback, and capability detection. They don't touch real
+hardware.
 
-The manual hardware test does write to the EC and restores the original mode:
+The manual hardware test does write to the EC, and it restores the original
+mode when it's done:
 
 ```bash
 sudo tests/manual_rapid_charge_test.sh
@@ -400,33 +412,33 @@ Battery-related methods:
 | `SetRapidCharge` | `(b) -> ()` | Enable or disable Rapid Charge |
 | `GetAllCapabilities` | `() -> a{sa{sv}}` | Report support, partial support, reason, and modes |
 
-See `daemon/ipc/dbus_service.py` for power, fan, GPU, system, sensor, RGB,
-overclock, and automation methods.
+There are more methods for power, fan, GPU, system, sensors, RGB, overclock,
+and automation in `daemon/ipc/dbus_service.py`.
 
-When adding a control:
+When you add a control:
 
 1. Add capability detection in the relevant `daemon/features/*.py` module.
-2. Validate inputs against a fixed allowlist. Do not expose arbitrary sysfs or
+2. Validate inputs against a fixed allowlist. Don't expose arbitrary sysfs or
    ACPI writes through D-Bus.
-3. Verify the write by reading the value back where possible.
+3. Read the value back where possible so you can verify the write.
 4. Expose it through the daemon, then add CLI and GUI support.
 5. Add unit tests with mocked sysfs paths.
 
 ### Style
 
-The repository includes an `.editorconfig`: UTF-8, LF line endings, trimmed
-trailing whitespace, 4-space Python and shell indentation, and literal tabs in
-the Makefile. Keep hardware access in `daemon/features/` for the daemon, GUI,
-and CLI path rather than in the frontends. The zenity fallback is the legacy
+The repo includes an `.editorconfig`: UTF-8, LF line endings, trimmed trailing
+whitespace, 4-space Python and shell indentation, and literal tabs in the
+Makefile. Keep hardware access in `daemon/features/` for the daemon, GUI, and
+CLI path rather than in the frontends. The zenity fallback is the legacy
 exception.
 
 ## Reporting bugs and hardware results
 
-Questions, bugs, and suggestions are welcome via
-[GitHub issues](https://github.com/Samyakk21/lenovo-vantage-upgraded-linux/issues).
+Found a bug? Want to share your hardware results? Open an issue on
+[GitHub](https://github.com/Samyakk21/lenovo-vantage-upgraded-linux/issues).
 
-If you have a Lenovo system, hardware reports are especially useful. Please
-include:
+Hardware reports are especially useful if you have a Lenovo system that isn't
+listed yet. Please include:
 
 ```bash
 cat /sys/class/dmi/id/product_name
@@ -438,19 +450,19 @@ vantage-cli --json capabilities
 journalctl -u vantaged.service -b --no-pager
 ```
 
-Also describe which control failed, what you expected, and what actually
-happened. Do not include sensitive personal information.
+Also tell me which control failed, what you expected, and what actually
+happened. Please don't include sensitive personal information.
 
 ## Acknowledgements
 
-This project builds upon:
+Big thanks to:
 
 - [nightcodex7/lenovo-vantage-unofficial-linux](https://github.com/nightcodex7/lenovo-vantage-unofficial-linux)
   — the direct upstream base for the daemon, GUI, CLI, and zenity frontend.
 - [niizam/vantage](https://github.com/niizam/vantage)
   — the original unofficial Lenovo Vantage implementation for Linux, which
-  provided the foundation for controls such as Conservation Mode, Fan Mode,
-  and Fn Lock.
+  provided the foundation for controls like Conservation Mode, Fan Mode, and
+  Fn Lock.
 - [LenovoLegionToolkit](https://github.com/BartoszCichecki/LenovoLegionToolkit)
   — inspiration for the Windows feature set.
 
@@ -462,32 +474,30 @@ integration, tests, and documentation updates.
 
 ## License
 
-GNU General Public License v3.0. See [LICENSE](LICENSE).
+GNU General Public License v3.0. See [LICENSE](LICENSE) for the full text.
 
-Lenovo is a trademark of Lenovo Group Ltd. This project is not affiliated with
+Lenovo is a trademark of Lenovo Group Ltd. This project isn't affiliated with
 Lenovo.
 
 ## Maintainer
 
 Maintained by [@Samyakk21](https://github.com/Samyakk21). Questions, bugs, and
 suggestions are welcome via GitHub issues. If you have a Lenovo system, please
-consider sharing what works and what does not so support can improve.
+consider sharing what works and what doesn't so support can improve.
 
-## Safety and liability
+## Note
 
-This software is provided **as is**, without warranty of any kind, express or
-implied, including but not limited to the warranties of merchantability,
-fitness for a particular purpose, and non-infringement.
+A friendly but important note: this project is unofficial and not affiliated
+with Lenovo. I've tested it on my IdeaPad Gaming 3 15ACH6, but not on every
+Lenovo laptop out there. Features may work differently on your machine, and
+some may not work at all or may give results you don't expect.
 
-It has not been tested on all machines. Compatibility, behavior, and results
-may vary by model, BIOS, firmware, kernel, and installed tools. Some features
-may not work as intended or may produce undesirable outcomes.
+Some controls write to kernel sysfs interfaces handled by the Lenovo EC. Please
+use common sense, back up anything important, and understand what you're
+changing before you change it.
 
-To the maximum extent permitted by applicable law, the author and contributors
-**cannot be held liable** for any direct, indirect, incidental, special,
-consequential, or exemplary damages, including but not limited to loss of data,
-loss of profits, hardware damage, system instability, or voided warranties,
-arising from the use of or inability to use this software.
-
-By using this software, you accept these risks and agree that you are
-responsible for the changes you make to your system.
+I can't guarantee compatibility, and to the extent the law allows, I can't be
+held liable for any damage, data loss, hardware failure, voided warranty, or
+other issues that come from using this software. You're responsible for the
+changes you make to your system. If that sounds like too much risk, please
+don't use it.
