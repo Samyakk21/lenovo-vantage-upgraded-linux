@@ -508,15 +508,16 @@ class VantageGUI(QMainWindow):
         self.timer.start(2000)
         self.update_sensors()
 
-        self.power_timer = QTimer()
-        self.power_timer.timeout.connect(self.sync_power_mode)
-        self.power_timer.start(5000)
+        self._state_tick = 0
+        self.state_timer = QTimer()
+        self.state_timer.timeout.connect(self.refresh_live_state)
+        self.state_timer.start(1000)
 
     def switch_tab(self, idx):
         self.nav_btns[idx].setChecked(True)
         self.stack.setCurrentIndex(idx)
-        if idx in (0, 1):
-            self.sync_power_mode()
+        if hasattr(self, "timer"):
+            self.sync_hardware_state()
 
     def _make_info_icon(self, tooltip_text):
         lbl = QLabel("ⓘ")
@@ -1296,7 +1297,48 @@ class VantageGUI(QMainWindow):
             switch.setChecked(bool(checked))
             switch.blockSignals(False)
 
-    def sync_power_mode(self):
+    @staticmethod
+    def _system_control_supported(name):
+        """Read-only fallback for daemons that don't report per-control caps."""
+        root = "/sys/bus/platform/devices"
+        try:
+            return any(
+                os.path.exists(os.path.join(root, entry, name))
+                for entry in os.listdir(root)
+                if entry.startswith("VPC2004:")
+            )
+        except OSError:
+            return False
+
+    @staticmethod
+    def _combo_is_busy(combo):
+        """Only skip a combo while its dropdown is open."""
+        try:
+            return combo.view().isVisible()
+        except Exception:
+            return False
+
+    def _sync_combo_live(self, combos, value, force=False):
+        for combo in combos:
+            if not force and self._combo_is_busy(combo):
+                continue
+            if combo.currentText() == value:
+                continue
+            combo.blockSignals(True)
+            combo.setCurrentText(value)
+            combo.blockSignals(False)
+
+    def _sync_switches_live(self, switches, checked):
+        for switch in switches:
+            if switch.isDown():
+                continue
+            if switch.isChecked() == bool(checked):
+                continue
+            switch.blockSignals(True)
+            switch.setChecked(bool(checked))
+            switch.blockSignals(False)
+
+    def sync_power_mode(self, force=False):
         """Reflect the current Ubuntu/power-profiles-daemon mode in the GUI."""
         try:
             pm = str(self.svc.iface.GetPowerMode()).lower()
@@ -1304,12 +1346,78 @@ class VantageGUI(QMainWindow):
             return
 
         value = "Quiet" if "quiet" in pm else "Performance" if "performance" in pm else "Balance"
-        for combo in self.pm_combos:
-            if combo.hasFocus():
-                continue
-            combo.blockSignals(True)
-            combo.setCurrentText(value)
-            combo.blockSignals(False)
+        self._sync_combo_live(self.pm_combos, value, force=force)
+
+    def sync_hardware_state(self, include_gpu=True):
+        """Refresh settings changed outside the GUI, such as Fn+Esc or Fn+Q."""
+        self.sync_power_mode()
+
+        try:
+            mode = str(self.svc.iface.GetChargeMode())
+        except Exception:
+            try:
+                mode = "long_life" if bool(self.svc.iface.GetConservation()) else "standard"
+            except Exception:
+                mode = None
+
+        if mode is not None:
+            self._sync_switches_live(self.conservation_switches, mode == "long_life")
+            self._sync_switches_live(self.rapid_switches, mode == "fast")
+
+        try:
+            self._sync_combo_live(
+                self.usb_combos,
+                "On" if bool(self.svc.iface.GetUsbCharging()) else "Off",
+            )
+        except Exception:
+            pass
+
+        try:
+            self._sync_combo_live(
+                self.fn_combos,
+                "On" if bool(self.svc.iface.GetFnLock()) else "Off",
+            )
+        except Exception:
+            pass
+
+        try:
+            self._sync_combo_live(
+                self.ib_combos,
+                "On" if bool(self.svc.iface.GetInstantBoot()) else "Off",
+            )
+        except Exception:
+            pass
+
+        try:
+            self._sync_combo_live(
+                self.fs_combos,
+                "On" if bool(self.svc.iface.GetFlipToStart()) else "Off",
+            )
+        except Exception:
+            pass
+
+        if include_gpu:
+            try:
+                gpu_mode = str(self.svc.iface.GetDgpuMode()).lower()
+                self._sync_combo_live(
+                    self.gpu_combos,
+                    "Integrated" if "integrated" in gpu_mode else "Dedicated" if "dedicated" in gpu_mode or "nvidia" in gpu_mode else "Hybrid",
+                )
+            except Exception:
+                pass
+
+        try:
+            fm = str(self.svc.iface.GetFanMode()).lower()
+            self._sync_combo_live(
+                self.fan_combos,
+                "Super Silent" if "super" in fm else "Dust Cleaning" if "dust" in fm else "Performance" if "performance" in fm else "Standard",
+            )
+        except Exception:
+            pass
+
+    def refresh_live_state(self):
+        self._state_tick += 1
+        self.sync_hardware_state(include_gpu=(self._state_tick % 10 == 0))
 
     def load_state(self):
         current = self.stack.currentWidget()
@@ -1343,10 +1451,21 @@ class VantageGUI(QMainWindow):
                 cap = caps.get(name)
                 if cap:
                     return cap
+
+                # Compatibility with an older daemon that only reports one
+                # combined system capability. Reading the sysfs path is enough
+                # to decide whether this individual row should be enabled.
+                labels = {
+                    "fn_lock": "Fn Lock",
+                    "flip_to_start": "Flip To Start",
+                    "instant_boot": "Instant Boot",
+                    "usb_charging": "Always-On USB",
+                }
+                supported = self._system_control_supported(name)
                 return {
-                    "supported": False,
+                    "supported": supported,
                     "partial": False,
-                    "reason": "Restart the updated vantaged daemon to detect this control.",
+                    "reason": "" if supported else f"{labels.get(name, name.replace('_', ' ').title())} is not available on this laptop.",
                 }
 
             self.apply_cap(self.rows.get('fn'), system_cap("fn_lock"))
@@ -1377,7 +1496,7 @@ class VantageGUI(QMainWindow):
             "Rapid Charge is not supported by this laptop's EC."
         )
 
-        self.sync_power_mode()
+        self.sync_power_mode(force=True)
         
         mode = "standard"
         try:

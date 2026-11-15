@@ -10,6 +10,10 @@
   available, and the GUI refreshes when Ubuntu's built-in mode changes.
 - Fixed Flip To Start, Instant Boot, and Always-On USB detection so each
   control is enabled or disabled independently.
+- The GUI now polls the hardware about once a second, so Fn+Esc, Fn+Q, CLI, and
+  other external changes update the controls without restarting the app.
+- The GUI falls back to a read-only sysfs check for individual system controls
+  when it's talking to an older daemon.
 
 ## 1.1.0 - Rapid Charge release
 

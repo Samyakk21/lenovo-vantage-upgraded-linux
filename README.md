@@ -256,9 +256,10 @@ Conservation, so Rapid Charge shows up as unsupported.
 
 ## How it works
 
-Under the hood, the GUI and CLI don't touch hardware directly. They talk to a
+Under the hood, the GUI and CLI don't write hardware directly. They talk to a
 small root-owned D-Bus daemon, which does the capability checks and writes the
-sysfs files.
+sysfs files. The GUI has one read-only sysfs fallback to detect per-control
+support when it's running against an older daemon.
 
 ```text
 vantage-gui / vantage-cli
@@ -283,9 +284,15 @@ Useful details:
 - **Daemon install path:** `/usr/lib/vantage/daemon/vantaged.py`
 
 Power profiles prefer `powerprofilesctl`, so changes stay in sync with Ubuntu's
-built-in power mode. The GUI refreshes the current mode when you switch tabs and
-every few seconds. Direct `platform_profile` writes are used only when
+built-in power mode. Direct `platform_profile` writes are used only when
 power-profiles-daemon isn't available.
+
+The GUI also polls the daemon about once a second for the quick controls. That
+means changes made with hardware hotkeys (such as Fn+Q for power mode or Fn+Esc
+for Fn Lock), the CLI, or another app show up without restarting the GUI. GPU
+mode is checked less often because changing it needs a reboot. The live
+refresh leaves the TDP fields alone, and a dropdown is skipped while it's open
+so the refresh doesn't fight your selection.
 
 The zenity fallback (`/usr/bin/vantage`) is a standalone shell script. It uses
 `pkexec` to write the same sysfs interfaces and doesn't need the daemon.
@@ -337,8 +344,9 @@ running.
 These controls need their own `VPC2004` sysfs files (`flip_to_start`,
 `instant_boot`, and `usb_charging`). If your model doesn't expose one of them,
 that row is disabled even when Fn Lock works. This is expected. If the controls
-worked before an upgrade, restart the updated `vantaged.service`; older daemons
-only report one combined system capability.
+worked before an upgrade, restart the updated `vantaged.service`. Newer daemons
+report each control separately, while the GUI falls back to a read-only sysfs
+check with older ones.
 
 ### Permission errors
 
