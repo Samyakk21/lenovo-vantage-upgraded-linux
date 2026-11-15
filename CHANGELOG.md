@@ -1,4 +1,11 @@
-# Lenovo Vantage Upgraded Changelog
+# Lenovo Vantage Upgraded Linux Changelog
+
+## Unreleased
+
+- Renamed the project and repository to **Lenovo Vantage Upgraded Linux**.
+- Expanded the README with architecture, development, troubleshooting, and
+  hardware-reporting guidance.
+- Added a compatibility and liability disclaimer.
 
 ## 1.1.0 - Rapid Charge release
 

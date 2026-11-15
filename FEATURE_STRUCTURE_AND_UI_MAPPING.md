@@ -1,4 +1,4 @@
-# Lenovo Vantage Upgraded – Feature Structure & UI Mapping (Aligned Specification)
+# Lenovo Vantage Upgraded Linux – Feature Structure & UI Mapping (Aligned Specification)
 
 ## 0. Objective
 

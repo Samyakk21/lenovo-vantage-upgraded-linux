@@ -1,5 +1,5 @@
 [Unit]
-Description=Lenovo Vantage Linux Daemon
+Description=Lenovo Vantage Upgraded Linux Daemon
 After=dbus.service
 
 [Service]

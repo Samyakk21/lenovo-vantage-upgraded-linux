@@ -165,7 +165,7 @@ main() {
         which nmcli >/dev/null 2>&1 && options+=("WiFi" "$(get_wifi_status)")
 
         local height=$(( ${#options[@]} / 2 * 35 + 120 ))
-        local menu="$(zenity --list --title "Lenovo Vantage Upgraded v1.1.0" --text "Select function:" --column "Function" --column "Status" "${options[@]}" --height $height --width 350)"
+        local menu="$(zenity --list --title "Lenovo Vantage Upgraded Linux v1.1.0" --text "Select function:" --column "Function" --column "Status" "${options[@]}" --height $height --width 350)"
         
         case "$menu" in
             "Power Mode")

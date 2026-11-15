@@ -1,4 +1,4 @@
-# Lenovo Vantage Upgraded – Universal Feature Parity & Implementation Specification
+# Lenovo Vantage Upgraded Linux – Universal Feature Parity & Implementation Specification
 
 ## 0. Purpose
 This document defines a **complete, production-grade specification** to achieve feature parity with the Windows Lenovo Legion Toolkit (LLT), while implementing a **Linux-native, hardware-aware, and extensible system**.

@@ -384,7 +384,7 @@ class VantageGUI(QMainWindow):
     def __init__(self, svc):
         super().__init__()
         self.svc = svc
-        self.setWindowTitle("Lenovo Vantage Upgraded")
+        self.setWindowTitle("Lenovo Vantage Upgraded Linux")
         self.resize(1000, 750)
         self.setMinimumSize(900, 600)
         self.setStyleSheet(DARK_STYLESHEET)
@@ -1092,7 +1092,7 @@ class VantageGUI(QMainWindow):
         v.setContentsMargins(30, 30, 30, 30)
         v.setSpacing(10)
         
-        title = QLabel("Lenovo Vantage Upgraded")
+        title = QLabel("Lenovo Vantage Upgraded Linux")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
         v.addWidget(title)
         
@@ -1103,14 +1103,19 @@ class VantageGUI(QMainWindow):
         v.addWidget(QLabel("<b>Battery modes:</b> Normal / Conservation / Rapid Charge"))
         v.addWidget(QLabel("<b>Optional dependencies:</b> supergfxctl, ryzenadj, power-profiles-daemon"))
         
-        lbl_github = QLabel('<b>GitHub:</b> <a href="https://github.com/Samyakk21/lenovo-vantage-upgraded" style="color: #0078d4; text-decoration: none;">Samyakk21/lenovo-vantage-upgraded</a>')
+        lbl_github = QLabel('<b>GitHub:</b> <a href="https://github.com/Samyakk21/lenovo-vantage-upgraded-linux" style="color: #0078d4; text-decoration: none;">Samyakk21/lenovo-vantage-upgraded-linux</a>')
         lbl_github.setOpenExternalLinks(True)
         v.addWidget(lbl_github)
         
         lbl_upstream = QLabel('<b>Upstream:</b> <a href="https://github.com/nightcodex7/lenovo-vantage-unofficial-linux" style="color: #0078d4; text-decoration: none;">nightcodex7/lenovo-vantage-unofficial-linux</a>')
         lbl_upstream.setOpenExternalLinks(True)
         v.addWidget(lbl_upstream)
-        
+
+        v.addSpacing(10)
+        lbl_disclaimer = QLabel("Unofficial software, not affiliated with Lenovo. Tested on limited hardware; use at your own risk.")
+        lbl_disclaimer.setWordWrap(True)
+        v.addWidget(lbl_disclaimer)
+
         layout.addWidget(frame)
         layout.addStretch()
         return page

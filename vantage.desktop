@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Encoding=UTF-8
-Name=Lenovo Vantage Upgraded
+Name=Lenovo Vantage Upgraded Linux
 Comment=Unofficial Lenovo hardware control suite for Linux with Rapid Charge support.
 Exec=/usr/bin/vantage-gui
 Icon=/usr/share/icons/hicolor/scalable/apps/vantage.png
