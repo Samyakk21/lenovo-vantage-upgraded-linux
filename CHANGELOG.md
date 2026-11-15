@@ -6,6 +6,10 @@
 - Expanded the README with architecture, development, troubleshooting, and
   hardware-reporting guidance.
 - Added a friendlier compatibility and liability note at the end of the README.
+- Power modes now use power-profiles-daemon as the source of truth when it is
+  available, and the GUI refreshes when Ubuntu's built-in mode changes.
+- Fixed Flip To Start, Instant Boot, and Always-On USB detection so each
+  control is enabled or disabled independently.
 
 ## 1.1.0 - Rapid Charge release
 

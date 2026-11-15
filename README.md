@@ -70,10 +70,13 @@ Here's the stuff you can control:
 - **Battery:** Normal, Conservation (`Long_Life`), and Rapid Charge (`Fast`)
   modes, plus battery status and health info.
 - **Power profiles:** Quiet, Balanced, and Performance through
-  `platform_profile` and, when available, `power-profiles-daemon`.
+  `power-profiles-daemon` and `platform_profile`. The app reads the same source
+  as Ubuntu's built-in power mode and refreshes when it changes.
 - **Fan modes:** Standard, Super Silent, Dust Cleaning, and Performance through
   `VPC2004:*/fan_mode`.
 - **System controls:** Always-On USB, Fn lock, Flip-to-Start, and Instant Boot.
+  Each control is detected separately, so a missing sysfs file only disables
+  that one row.
 - **GPU switching:** Hybrid, Integrated, and Dedicated modes through
   `supergfxctl` or `optimus-manager`.
 - **Optional tuning:** RyzenAdj TDP limits, NVIDIA clock offsets, and OpenRGB
@@ -279,6 +282,11 @@ Useful details:
 - **Service unit:** `vantaged.service`
 - **Daemon install path:** `/usr/lib/vantage/daemon/vantaged.py`
 
+Power profiles prefer `powerprofilesctl`, so changes stay in sync with Ubuntu's
+built-in power mode. The GUI refreshes the current mode when you switch tabs and
+every few seconds. Direct `platform_profile` writes are used only when
+power-profiles-daemon isn't available.
+
 The zenity fallback (`/usr/bin/vantage`) is a standalone shell script. It uses
 `pkexec` to write the same sysfs interfaces and doesn't need the daemon.
 
@@ -323,6 +331,14 @@ vantage-cli capabilities
 That tells you which features were detected and why unsupported ones are
 disabled. Check that the expected sysfs paths exist and that the daemon is
 running.
+
+### Flip To Start or Instant Boot is disabled
+
+These controls need their own `VPC2004` sysfs files (`flip_to_start`,
+`instant_boot`, and `usb_charging`). If your model doesn't expose one of them,
+that row is disabled even when Fn Lock works. This is expected. If the controls
+worked before an upgrade, restart the updated `vantaged.service`; older daemons
+only report one combined system capability.
 
 ### Permission errors
 

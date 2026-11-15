@@ -245,12 +245,19 @@ def main():
         if args.json:
             print(json.dumps(caps, indent=2))
         else:
+            labels = {
+                "fn_lock": "Fn Lock",
+                "flip_to_start": "Flip To Start",
+                "instant_boot": "Instant Boot",
+                "usb_charging": "Always-On USB",
+            }
             for k, v in caps.items():
                 sup = bool(v.get('supported', False))
                 part = bool(v.get('partial', False))
                 reason = str(v.get('reason', ''))
                 mark = "[✓]" if sup else ("[~]" if part else "[✗]")
-                print(f"{mark} {k.capitalize()}:")
+                label = labels.get(k, k.replace("_", " ").title())
+                print(f"{mark} {label}:")
                 print(f"  Supported: {sup}")
                 print(f"  Partial:   {part}")
                 if reason:

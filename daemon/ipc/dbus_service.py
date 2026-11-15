@@ -160,10 +160,22 @@ class VantageService(dbus.service.Object):
         from features.gpu import detect_capabilities as cap_gpu
         from features.fan import detect_capabilities as cap_fan
         from features.battery import detect_capabilities as cap_bat
-        from features.system import detect_capabilities as cap_sys
+        from features.system import detect_capabilities as cap_sys, SYSTEM_CONTROL_LABELS
         from features.sensors import detect_capabilities as cap_sens
         from features.rgb import detect_capabilities as cap_rgb
         from features.overclock import detect_capabilities as cap_oc
+
+        sys_caps = cap_sys()
+
+        def control_cap(name):
+            controls = sys_caps.get("controls", {})
+            supported = bool(controls.get(name, False))
+            label = SYSTEM_CONTROL_LABELS.get(name, name.replace("_", " ").title())
+            return {
+                "supported": supported,
+                "partial": False,
+                "reason": "" if supported else f"{label} is not available on this laptop.",
+            }
 
         def dict_to_dbus(d):
             payload = {
@@ -183,7 +195,11 @@ class VantageService(dbus.service.Object):
             "gpu": dict_to_dbus(cap_gpu()),
             "fan": dict_to_dbus(cap_fan()),
             "battery": dict_to_dbus(cap_bat()),
-            "system": dict_to_dbus(cap_sys()),
+            "system": dict_to_dbus(sys_caps),
+            "fn_lock": dict_to_dbus(control_cap("fn_lock")),
+            "flip_to_start": dict_to_dbus(control_cap("flip_to_start")),
+            "instant_boot": dict_to_dbus(control_cap("instant_boot")),
+            "usb_charging": dict_to_dbus(control_cap("usb_charging")),
             "sensors": dict_to_dbus(cap_sens()),
             "rgb": dict_to_dbus(cap_rgb()),
             "overclock": dict_to_dbus(cap_oc())

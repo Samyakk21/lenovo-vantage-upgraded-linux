@@ -508,9 +508,15 @@ class VantageGUI(QMainWindow):
         self.timer.start(2000)
         self.update_sensors()
 
+        self.power_timer = QTimer()
+        self.power_timer.timeout.connect(self.sync_power_mode)
+        self.power_timer.start(5000)
+
     def switch_tab(self, idx):
         self.nav_btns[idx].setChecked(True)
         self.stack.setCurrentIndex(idx)
+        if idx in (0, 1):
+            self.sync_power_mode()
 
     def _make_info_icon(self, tooltip_text):
         lbl = QLabel("ⓘ")
@@ -1290,6 +1296,21 @@ class VantageGUI(QMainWindow):
             switch.setChecked(bool(checked))
             switch.blockSignals(False)
 
+    def sync_power_mode(self):
+        """Reflect the current Ubuntu/power-profiles-daemon mode in the GUI."""
+        try:
+            pm = str(self.svc.iface.GetPowerMode()).lower()
+        except Exception:
+            return
+
+        value = "Quiet" if "quiet" in pm else "Performance" if "performance" in pm else "Balance"
+        for combo in self.pm_combos:
+            if combo.hasFocus():
+                continue
+            combo.blockSignals(True)
+            combo.setCurrentText(value)
+            combo.blockSignals(False)
+
     def load_state(self):
         current = self.stack.currentWidget()
         scroll = current.findChild(QScrollArea) if current else None
@@ -1318,11 +1339,20 @@ class VantageGUI(QMainWindow):
             
             self.apply_cap(self.rows.get('battery_conservation'), caps.get("battery", {}))
             
-            sys_cap = caps.get("system", {})
-            self.apply_cap(self.rows.get('fn'), sys_cap)
-            self.apply_cap(self.rows.get('ib'), sys_cap)
-            self.apply_cap(self.rows.get('fs'), sys_cap)
-            self.apply_cap(self.rows.get('usb'), sys_cap)
+            def system_cap(name):
+                cap = caps.get(name)
+                if cap:
+                    return cap
+                return {
+                    "supported": False,
+                    "partial": False,
+                    "reason": "Restart the updated vantaged daemon to detect this control.",
+                }
+
+            self.apply_cap(self.rows.get('fn'), system_cap("fn_lock"))
+            self.apply_cap(self.rows.get('ib'), system_cap("instant_boot"))
+            self.apply_cap(self.rows.get('fs'), system_cap("flip_to_start"))
+            self.apply_cap(self.rows.get('usb'), system_cap("usb_charging"))
             
             self.apply_cap(self.rows.get('gpu_dash'), caps.get("gpu", {}))
             self.apply_cap(self.rows.get('gpu_main'), caps.get("gpu", {}))
@@ -1347,10 +1377,7 @@ class VantageGUI(QMainWindow):
             "Rapid Charge is not supported by this laptop's EC."
         )
 
-        try:
-            pm = str(self.svc.iface.GetPowerMode()).lower()
-            _sync(self.pm_combos, "Quiet" if "quiet" in pm else "Performance" if "performance" in pm else "Balance")
-        except: pass
+        self.sync_power_mode()
         
         mode = "standard"
         try:

@@ -21,39 +21,63 @@ def detect_capabilities() -> dict:
     return {"supported": False, "partial": False, "reason": "No power control available"}
 
 def set_power_mode(mode: str) -> None:
-    """Map LLT power mode names to Linux platform_profile and sync with power-profiles-daemon."""
+    """Set the power mode, preferring power-profiles-daemon when available."""
     profile = PROFILE_MAP.get(mode.lower())
     if not profile:
         raise ValueError(f"Unknown mode: {mode}")
-    
-    try:
-        if Path(PLATFORM_PROFILE).exists():
-            Path(PLATFORM_PROFILE).write_text(profile)
-    except Exception:
-        pass
-        
+
+    # power-profiles-daemon is the source of truth on Ubuntu. Let it update
+    # platform_profile for us so the built-in power mode stays in sync.
     if shutil.which("powerprofilesctl"):
         try:
             ppd_mode = "power-saver" if profile == "low-power" else profile
-            subprocess.run(["powerprofilesctl", "set", ppd_mode], check=True)
+            subprocess.run(
+                ["powerprofilesctl", "set", ppd_mode],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return
         except Exception:
             pass
 
+    if Path(PLATFORM_PROFILE).exists():
+        Path(PLATFORM_PROFILE).write_text(profile)
+        return
+
+    raise RuntimeError(
+        "Could not set power mode: power-profiles-daemon is unavailable "
+        "and platform_profile does not exist."
+    )
+
 def get_power_mode() -> str:
+    """Read the mode from power-profiles-daemon first, then platform_profile."""
+    rev = {v: k for k, v in PROFILE_MAP.items()}
+
+    if shutil.which("powerprofilesctl"):
+        try:
+            res = subprocess.run(
+                ["powerprofilesctl", "get"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            raw = res.stdout.strip()
+            if raw:
+                if raw == "power-saver":
+                    raw = "low-power"
+                return rev.get(raw, raw).capitalize()
+        except Exception:
+            pass
+
     try:
         if Path(PLATFORM_PROFILE).exists():
             raw = Path(PLATFORM_PROFILE).read_text().strip()
-            rev = {v: k for k, v in PROFILE_MAP.items()}
             return rev.get(raw, raw).capitalize()
-        elif shutil.which("powerprofilesctl"):
-            res = subprocess.run(["powerprofilesctl", "get"], capture_output=True, text=True)
-            raw = res.stdout.strip()
-            if raw == "power-saver": raw = "low-power"
-            rev = {v: k for k, v in PROFILE_MAP.items()}
-            return rev.get(raw, raw).capitalize()
-        return "Unknown"
     except Exception:
-        return "Unknown"
+        pass
+
+    return "Unknown"
 
 def set_ryzen_tdp(stapm_limit_mw: int, fast_limit_mw: int, slow_limit_mw: int) -> bool:
     if not shutil.which("ryzenadj"):
