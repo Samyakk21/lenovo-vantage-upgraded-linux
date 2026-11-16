@@ -19,6 +19,7 @@ laptop controls.
 
 - [Status](#status)
 - [What this fork adds](#what-this-fork-adds)
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -62,6 +63,16 @@ Compared with the upstream projects, this fork adds:
 - Unit tests and a manual hardware write test.
 - **No** `acpi_call`, DKMS module, or Secure Boot changes required for Rapid
   Charge.
+
+## Screenshots
+
+![Dashboard page](dashboard_ss.png)
+
+*Dashboard overview with battery, power, cooling, and system status.*
+
+![Battery page](battery_page_ss.png)
+
+*Battery page with the Conservation Mode and Rapid Charge switches.*
 
 ## Features
 
